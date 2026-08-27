@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Kết quả job #{{ job.id }}{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Job #{{ job.id }}</h2>
+  <p id="status-line" class="muted">Đang khởi tạo...</p>
+  <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
+  <p id="summary-line"></p>
+  <p id="error-line" style="color:#991b1b;"></p>
+  <a id="download-all-link" class="btn" style="display:none;">Download tất cả PDF (.zip)</a>
+  <a id="download-excel-link" class="btn btn-secondary" style="display:none;">Tải Excel danh sách không tìm thấy</a>
+</div>
+
+<div class="card" id="results-card" style="display:none;">
+  <div class="tabs">
+    <button type="button" class="tab-btn active" data-tab="found">Tìm thấy (<span id="found-count">0</span>)</button>
+    <button type="button" class="tab-btn" data-tab="not-found">Không tìm thấy (<span id="not-found-count">0</span>)</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-found">
+    <table id="found-table">
+      <thead>
+        <tr>
+          <th>STT</th>
+          <th>MNV</th>
+          <th>Họ và tên</th>
+          <th>Tên file</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="tab-panel" id="tab-not-found">
+    <table id="not-found-table">
+      <thead>
+        <tr>
+          <th>STT</th>
+          <th>MNV</th>
+          <th>Họ và tên</th>
+          <th>CCCD</th>
+          <th>Phòng tuyển dụng</th>
+          <th>Đã nhận hồ sơ</th>
+          <th>Nguồn</th>
+          <th>Ngày viết hồ sơ</th>
+          <th>Có mã checklist</th>
+          <th>Kết luận</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+  });
+});
+</script>
+
+<script>
+const jobId = {{ job.id }};
+
+async function pollStatus() {
+  const resp = await fetch(`/jobs/${jobId}/api`);
+  const data = await resp.json();
+
+  document.getElementById("status-line").textContent = `Trạng thái: ${data.status}`;
+
+  const pct = data.total ? Math.round((data.processed / data.total) * 100) : 0;
+  document.getElementById("progress-bar").style.width = pct + "%";
+  document.getElementById("summary-line").textContent =
+    `Đã xử lý ${data.processed}/${data.total} — Tìm thấy: ${data.found_count}, Không tìm thấy: ${data.not_found_count}`;
+
+  if (data.status === "error") {
+    document.getElementById("error-line").textContent = "Lỗi: " + (data.error_message || "");
+    return;
+  }
+
+  if (data.status === "done") {
+    await loadResults();
+    return;
+  }
+
+  setTimeout(pollStatus, 1500);
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML.replace(/"/g, "&quot;");
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".view-pdf-btn");
+  if (btn) {
+    openPdfModal(btn.dataset.url, btn.dataset.title);
+  }
+});
+
+async function loadResults() {
+  const resp = await fetch(`/jobs/${jobId}/results.json`);
+  const rows = await resp.json();
+
+  const foundRows = rows.filter((row) => row.status === "found");
+  const notFoundRows = rows.filter((row) => row.status !== "found");
+
+  document.getElementById("found-count").textContent = foundRows.length;
+  document.getElementById("not-found-count").textContent = notFoundRows.length;
+
+  const foundTbody = document.querySelector("#found-table tbody");
+  foundTbody.innerHTML = "";
+  for (const row of foundRows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${row.stt || ""}</td>
+      <td>${row.mnv}</td>
+      <td>${row.ho_ten || ""}</td>
+      <td>${row.drive_file_name || ""}</td>
+      <td><button type="button" class="btn btn-secondary view-pdf-btn" data-url="/jobs/${jobId}/download/pdf/${row.drive_file_id}" data-title="${escapeHtml(row.drive_file_name || 'Xem hồ sơ')}">Xem hồ sơ</button></td>
+    `;
+    foundTbody.appendChild(tr);
+  }
+
+  const notFoundTbody = document.querySelector("#not-found-table tbody");
+  notFoundTbody.innerHTML = "";
+  for (const row of notFoundRows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${row.stt || ""}</td>
+      <td>${row.mnv}</td>
+      <td>${row.ho_ten || ""}</td>
+      <td>${row.cccd || ""}</td>
+      <td>${row.phong_tuyen_dung || ""}</td>
+      <td>${row.da_nhan_ho_so || ""}</td>
+      <td>${row.nguon || ""}</td>
+      <td>${row.ngay_viet_ho_so || ""}</td>
+      <td>${row.co_ma_checklist || ""}</td>
+      <td>${row.ket_luan || ""}</td>
+    `;
+    notFoundTbody.appendChild(tr);
+  }
+
+  document.getElementById("results-card").style.display = "block";
+
+  if (foundRows.length > 0) {
+    const allLink = document.getElementById("download-all-link");
+    allLink.href = `/jobs/${jobId}/download/pdf-all`;
+    allLink.style.display = "inline-block";
+  }
+
+  if (notFoundRows.length > 0) {
+    const link = document.getElementById("download-excel-link");
+    link.href = `/jobs/${jobId}/download/excel`;
+    link.style.display = "inline-block";
+  }
+}
+
+pollStatus();
+</script>
+{% endblock %}

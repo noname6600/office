@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Cấu hình{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Cấu hình nguồn dữ liệu (riêng của tài khoản {{ user.email }})</h2>
+  <p class="muted">
+    Các link này chỉ áp dụng cho các job do bạn tạo, không ảnh hưởng người dùng khác.
+  </p>
+  {% if request.query_params.get('saved') %}
+    <p style="color:#166534;">Đã lưu cấu hình.</p>
+  {% endif %}
+  <form action="/settings" method="post">
+    <label for="drive_folder_1">Folder Drive #1 (ID)</label>
+    <input type="text" id="drive_folder_1" name="drive_folder_1" value="{{ settings.drive_folder_1 }}" required>
+
+    <label for="drive_folder_2">Folder Drive #2 (ID)</label>
+    <input type="text" id="drive_folder_2" name="drive_folder_2" value="{{ settings.drive_folder_2 }}" required>
+
+    <label for="sheet_recruit_url">Google Sheet — Phòng tuyển dụng (link)</label>
+    <input type="url" id="sheet_recruit_url" name="sheet_recruit_url" value="{{ settings.sheet_recruit_url }}" required>
+
+    <label for="sheet_received_url">Google Sheet — Đã nhận hồ sơ (link)</label>
+    <input type="url" id="sheet_received_url" name="sheet_received_url" value="{{ settings.sheet_received_url }}" required>
+
+    <label for="sheet_checklist_url">Google Sheet — Checklist công nhân cơ hữu (link)</label>
+    <input type="url" id="sheet_checklist_url" name="sheet_checklist_url" value="{{ settings.sheet_checklist_url }}" required>
+
+    <button type="submit">Lưu cấu hình</button>
+  </form>
+</div>
+{% endblock %}

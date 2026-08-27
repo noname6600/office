@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.env
+*.db
+uploads/
+uploads_test/
+server.log
+.claude/
+
+# File Excel dữ liệu thật (chứa CCCD/thông tin cá nhân nhân viên) - không commit
+*.xlsx
+*.xls
+*.XLSX
+*.XLS

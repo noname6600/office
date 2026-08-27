@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Tạo job mới{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Tạo job tra cứu mới</h2>
+
+  <div class="tabs">
+    <button type="button" class="tab-btn active" data-mode="single">Tìm 1 người (nhập MNV)</button>
+    <button type="button" class="tab-btn" data-mode="list">Tìm theo danh sách (upload Excel)</button>
+  </div>
+
+  <form action="/jobs" method="post" enctype="multipart/form-data">
+    <div class="tab-panel active" id="mode-single">
+      <label for="single_mnv">Mã nhân viên (MNV)</label>
+      <input type="text" id="single_mnv" name="single_mnv" placeholder="VD: 4167969">
+    </div>
+
+    <div class="tab-panel" id="mode-list">
+      <label for="ds_file">Danh sách nhân viên cần tìm (.xlsx)</label>
+      <input type="file" id="ds_file" name="ds_file" accept=".xlsx">
+      <p class="muted">
+        File phải theo đúng định dạng chuẩn: <strong>STT ở cột A</strong>, <strong>MNV ở cột C</strong>.
+      </p>
+    </div>
+
+    <label for="baocao_file">File "BÁO CÁO ĐÀO TẠO" mới nhất (.xlsx)</label>
+    <input type="file" id="baocao_file" name="baocao_file" accept=".xlsx" required>
+    <p class="muted">Dùng để tra CCCD khi không tìm thấy PDF trên Drive.</p>
+
+    <button type="submit">Bắt đầu tìm kiếm</button>
+  </form>
+</div>
+
+<script>
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+    btn.classList.add("active");
+
+    const mode = btn.dataset.mode;
+    document.getElementById(`mode-${mode}`).classList.add("active");
+    document.getElementById("single_mnv").required = (mode === "single");
+    document.getElementById("ds_file").required = (mode === "list");
+  });
+});
+</script>
+{% endblock %}

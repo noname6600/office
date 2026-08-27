@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+.env.local
+app.db
+uploads/
+server.log
+.git
+.claude/
+*.xlsx
+*.XLSX

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Tra cứu hồ sơ nhân viên{% endblock %}</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      background: #f5f6f8;
+      color: #1a1a1a;
+    }
+    header {
+      background: #1f2937;
+      color: #fff;
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header a { color: #fff; text-decoration: none; margin-left: 16px; font-size: 14px; }
+    main { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    label { display: block; font-weight: 600; margin: 12px 0 4px; font-size: 14px; }
+    input[type=text], input[type=url], input[type=file] {
+      width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;
+    }
+    button, .btn {
+      display: inline-block;
+      background: #2563eb; color: #fff; border: none; border-radius: 6px;
+      padding: 9px 16px; font-size: 14px; cursor: pointer; text-decoration: none;
+      margin-top: 16px;
+    }
+    button:hover, .btn:hover { background: #1d4ed8; }
+    .btn-secondary { background: #6b7280; }
+    .btn-secondary:hover { background: #4b5563; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; }
+    th { background: #f9fafb; }
+    .badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+    .badge-found { background: #dcfce7; color: #166534; }
+    .badge-not-found { background: #fee2e2; color: #991b1b; }
+    .muted { color: #6b7280; font-size: 13px; }
+    .progress { background: #e5e7eb; border-radius: 999px; height: 10px; overflow: hidden; margin: 12px 0; }
+    .progress-bar { background: #2563eb; height: 100%; width: 0%; transition: width .3s; }
+    .tabs { display: flex; gap: 4px; border-bottom: 1px solid #e5e7eb; margin-bottom: 16px; }
+    .tab-btn {
+      background: none; border: none; margin: 0; padding: 10px 16px; font-size: 14px;
+      font-weight: 600; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent;
+      border-radius: 0;
+    }
+    .tab-btn:hover { background: #f3f4f6; color: #1a1a1a; }
+    .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      z-index: 1000; align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 8px; width: min(900px, 94vw); height: 90vh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 16px; border-bottom: 1px solid #e5e7eb;
+    }
+    .modal-header span { font-weight: 600; font-size: 14px; }
+    .modal-close {
+      background: none; border: none; font-size: 20px; cursor: pointer; color: #6b7280; margin: 0; padding: 0 4px;
+    }
+    .modal-close:hover { color: #1a1a1a; background: none; }
+    .modal-box iframe { flex: 1; border: none; width: 100%; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Tra cứu hồ sơ nhân viên</strong>
+    <div>
+      <a href="/upload">Tạo job mới</a>
+      <a href="/settings">Cấu hình</a>
+      <a href="/auth/logout">Đăng xuất</a>
+    </div>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <div class="modal-overlay" id="pdf-modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span id="pdf-modal-title">Xem hồ sơ</span>
+        <button type="button" class="modal-close" id="pdf-modal-close">&times;</button>
+      </div>
+      <iframe id="pdf-modal-frame" src=""></iframe>
+    </div>
+  </div>
+  <script>
+    function openPdfModal(url, title) {
+      document.getElementById("pdf-modal-title").textContent = title || "Xem hồ sơ";
+      document.getElementById("pdf-modal-frame").src = url;
+      document.getElementById("pdf-modal-overlay").classList.add("open");
+    }
+    function closePdfModal() {
+      document.getElementById("pdf-modal-overlay").classList.remove("open");
+      document.getElementById("pdf-modal-frame").src = "";
+    }
+    document.getElementById("pdf-modal-close").addEventListener("click", closePdfModal);
+    document.getElementById("pdf-modal-overlay").addEventListener("click", (e) => {
+      if (e.target.id === "pdf-modal-overlay") closePdfModal();
+    });
+  </script>
+</body>
+</html>
