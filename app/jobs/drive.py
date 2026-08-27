@@ -10,6 +10,20 @@ MAX_RETRIES = 3
 CHUNK_SIZE = 4 * 1024 * 1024
 NUMBER_TOKEN_RE = re.compile(r"\d{5,}")
 
+# Tên file chứa các cụm này (không phân biệt hoa/thường, có/không dấu) sẽ bị loại
+# khỏi kết quả hoàn toàn — VD: hợp đồng thử nghiệm không tính là hồ sơ hợp lệ.
+EXCLUDED_NAME_SUBSTRINGS = ["hdtn"]
+
+
+def _normalize_for_filter(text: str) -> str:
+    text = text.replace("đ", "d").replace("Đ", "D")
+    return text.lower()
+
+
+def is_excluded_filename(name: str) -> bool:
+    normalized = _normalize_for_filter(name)
+    return any(sub in normalized for sub in EXCLUDED_NAME_SUBSTRINGS)
+
 
 def build_drive_service(credentials: Credentials):
     return build("drive", "v3", credentials=credentials, cache_discovery=False)
@@ -54,7 +68,8 @@ def list_pdfs_in_folder(service, folder_id: str) -> list[dict]:
                 if file.get("mimeType") == FOLDER_MIME_TYPE:
                     folders_to_scan.append(file["id"])
                 elif file.get("mimeType") == "application/pdf":
-                    files.append(file)
+                    if not is_excluded_filename(file.get("name", "")):
+                        files.append(file)
 
             page_token = response.get("nextPageToken")
             if not page_token:
