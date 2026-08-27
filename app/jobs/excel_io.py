@@ -3,10 +3,10 @@ from openpyxl import Workbook, load_workbook
 from app.jobs.textnorm import cccd_key, find_column, is_numeric, locate_header_row, normalize_code
 
 # DS.xlsx đã được chuẩn hoá: STT luôn ở cột A (index 0), MNV luôn ở cột C (index 2).
-# Cột D (Họ và tên) là best-effort — đọc nếu có, không bắt buộc.
+# Không đọc thêm cột nào khác làm Họ và tên — các file thực tế đặt cột D khác nhau tuỳ nguồn
+# (có khi là Họ và tên, có khi là Phòng/Vùng/Miền...), nên Họ và tên chỉ lấy từ báo cáo đào tạo.
 DS_STT_COL = 0
 DS_MNV_COL = 2
-DS_HOTEN_COL = 3
 
 BAOCAO_MNV_CANDIDATES = ["Mã nhân viên", "Mã NV", "MNV"]
 BAOCAO_CCCD_CANDIDATES = ["Số CMND/Hộ chiếu", "CCCD", "Số CMND"]
@@ -39,10 +39,7 @@ def read_ds_list(path: str) -> list[dict]:
             if not mnv:
                 continue
 
-            ho_ten_value = row[DS_HOTEN_COL].value if len(row) > DS_HOTEN_COL else None
-            ho_ten = str(ho_ten_value).strip() if ho_ten_value is not None else None
-
-            data.append({"stt": normalize_code(stt_value), "mnv": mnv, "ho_ten": ho_ten})
+            data.append({"stt": normalize_code(stt_value), "mnv": mnv, "ho_ten": None})
 
         return data
     finally:
