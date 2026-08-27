@@ -89,7 +89,7 @@ def _run_mnv_job(db, job: Job) -> None:
     for item in ds_list:
         mnv = item["mnv"]
         stt = item["stt"]
-        ho_ten = item.get("ho_ten")
+        ho_ten = item.get("ho_ten") or baocao_index.get(mnv, {}).get("ho_ten")
 
         matched_files = file_index.get(mnv, [])
 
@@ -143,14 +143,16 @@ def _run_cccd_job(db, job: Job) -> None:
         ds_path = os.path.join(upload_dir, "ds.xlsx")
         cccd_list = excel_io.read_cccd_list(ds_path)
 
-    baocao_cccd_to_mnv = excel_io.read_baocao_cccd_to_mnv(baocao_path)
+    baocao_cccd_index = excel_io.read_baocao_cccd_index(baocao_path)
 
     recruit_index = sheets.build_cccd_index(sheets.fetch_sheet_rows(settings.sheet_recruit_url))
     received_index = sheets.build_cccd_index(sheets.fetch_sheet_rows(settings.sheet_received_url))
     checklist_cccd_index = sheets.build_checklist_cccd_index(sheets.fetch_sheet_rows(settings.sheet_checklist_url))
 
     # Tra trước MNV cho từng CCCD (qua báo cáo đào tạo) để biết cần quét PDF theo những MNV nào.
-    resolved_mnv_by_cccd = {item["cccd"]: baocao_cccd_to_mnv.get(cccd_key(item["cccd"])) for item in cccd_list}
+    resolved_mnv_by_cccd = {
+        item["cccd"]: (baocao_cccd_index.get(cccd_key(item["cccd"])) or {}).get("mnv") for item in cccd_list
+    }
     mnv_list = [mnv for mnv in resolved_mnv_by_cccd.values() if mnv]
 
     files = drive.list_pdfs_merged(service, [settings.drive_folder_1, settings.drive_folder_2])
@@ -165,8 +167,8 @@ def _run_cccd_job(db, job: Job) -> None:
     for item in cccd_list:
         cccd = item["cccd"]
         stt = item["stt"]
-        ho_ten = item.get("ho_ten")
         mnv = resolved_mnv_by_cccd.get(cccd)
+        ho_ten = item.get("ho_ten") or (baocao_cccd_index.get(cccd_key(cccd)) or {}).get("ho_ten")
 
         matched_files = file_index.get(mnv, []) if mnv else []
 

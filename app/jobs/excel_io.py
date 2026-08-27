@@ -10,6 +10,7 @@ DS_HOTEN_COL = 3
 
 BAOCAO_MNV_CANDIDATES = ["Mã nhân viên", "Mã NV", "MNV"]
 BAOCAO_CCCD_CANDIDATES = ["Số CMND/Hộ chiếu", "CCCD", "Số CMND"]
+BAOCAO_HOTEN_CANDIDATES = ["Họ và tên", "Họ tên"]
 
 
 def _find_data_start_row(ws, max_scan: int = 20) -> int:
@@ -56,10 +57,10 @@ def read_cccd_list(path: str) -> list[dict]:
 
 
 def _read_baocao_rows(path: str) -> list[tuple[str, str]]:
-    """Đọc file 'BÁO CÁO ĐÀO TẠO' -> list[(mnv, cccd)].
+    """Đọc file 'BÁO CÁO ĐÀO TẠO' -> list[{"mnv", "cccd", "ho_ten"}].
 
     Cột được dò theo TÊN header, không hardcode vị trí, vì file này đổi theo ngày
-    và có thể lệch thứ tự cột.
+    và có thể lệch thứ tự cột. Cột Họ và tên là best-effort — không bắt buộc phải có.
     """
 
     workbook = load_workbook(path, read_only=True, data_only=True)
@@ -75,6 +76,7 @@ def _read_baocao_rows(path: str) -> list[tuple[str, str]]:
 
         idx_mnv = find_column(header, BAOCAO_MNV_CANDIDATES)
         idx_cccd = find_column(header, BAOCAO_CCCD_CANDIDATES)
+        idx_hoten = find_column(header, BAOCAO_HOTEN_CANDIDATES)
 
         if idx_mnv is None or idx_cccd is None:
             raise ValueError(
@@ -91,7 +93,12 @@ def _read_baocao_rows(path: str) -> list[tuple[str, str]]:
                 continue
 
             cccd = normalize_code(row[idx_cccd]) if idx_cccd < len(row) else ""
-            result.append((mnv, cccd))
+
+            ho_ten = None
+            if idx_hoten is not None and idx_hoten < len(row) and row[idx_hoten] is not None:
+                ho_ten = str(row[idx_hoten]).strip() or None
+
+            result.append({"mnv": mnv, "cccd": cccd, "ho_ten": ho_ten})
 
         return result
     finally:
@@ -99,18 +106,18 @@ def _read_baocao_rows(path: str) -> list[tuple[str, str]]:
 
 
 def read_baocao_index(path: str) -> dict[str, dict]:
-    """dict[MNV] = {"cccd": str} — dùng khi đã biết MNV, cần tra ra CCCD."""
+    """dict[MNV] = {"cccd": str, "ho_ten": str|None} — dùng khi đã biết MNV."""
 
-    return {mnv: {"cccd": cccd} for mnv, cccd in _read_baocao_rows(path)}
+    return {r["mnv"]: {"cccd": r["cccd"], "ho_ten": r["ho_ten"]} for r in _read_baocao_rows(path)}
 
 
-def read_baocao_cccd_to_mnv(path: str) -> dict[str, str]:
-    """dict[cccd_key(CCCD)] = MNV — chiều ngược lại read_baocao_index(), dùng khi tìm theo CCCD."""
+def read_baocao_cccd_index(path: str) -> dict[str, dict]:
+    """dict[cccd_key(CCCD)] = {"mnv": str, "ho_ten": str|None} — chiều ngược lại read_baocao_index()."""
 
-    result: dict[str, str] = {}
-    for mnv, cccd in _read_baocao_rows(path):
-        if cccd:
-            result[cccd_key(cccd)] = mnv
+    result: dict[str, dict] = {}
+    for r in _read_baocao_rows(path):
+        if r["cccd"]:
+            result[cccd_key(r["cccd"])] = {"mnv": r["mnv"], "ho_ten": r["ho_ten"]}
     return result
 
 
