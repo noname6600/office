@@ -41,6 +41,19 @@ def normalize_code(value) -> str:
     return str(value).strip()
 
 
+def cccd_key(cccd: str) -> str:
+    """Khoá so khớp CCCD, bỏ số 0 ở đầu.
+
+    Một số dòng trên Google Sheet bị định dạng ô kiểu Number thay vì Text nên
+    Google tự cắt mất số 0 đầu của CCCD (VD: 086087009550 -> 86087009550).
+    CCCD là số định danh duy nhất nên bỏ số 0 đầu để so khớp không rủi ro đụng nhầm.
+    """
+
+    if not cccd:
+        return cccd
+    return cccd.lstrip("0") or cccd
+
+
 def locate_header_row(rows: list, candidate_groups: list[list[str]], max_scan: int = 10) -> int:
     """Dò dòng header thật trong vài dòng đầu bằng cách chấm điểm số nhóm cột nhận diện được,
     thay vì giả định cố định dòng 1 là header (file/sheet sống có thể lệch dòng theo thời gian).

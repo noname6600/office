@@ -5,43 +5,73 @@
   <h2>Tạo job tra cứu mới</h2>
 
   <div class="tabs">
-    <button type="button" class="tab-btn active" data-mode="single">Tìm 1 người (nhập MNV)</button>
-    <button type="button" class="tab-btn" data-mode="list">Tìm theo danh sách (upload Excel)</button>
+    <button type="button" class="tab-btn active" data-search-type="mnv" data-mode="single">MNV — 1 người</button>
+    <button type="button" class="tab-btn" data-search-type="mnv" data-mode="list">MNV — danh sách</button>
+    <button type="button" class="tab-btn" data-search-type="cccd" data-mode="single">CCCD — 1 người</button>
+    <button type="button" class="tab-btn" data-search-type="cccd" data-mode="list">CCCD — danh sách</button>
   </div>
 
   <form action="/jobs" method="post" enctype="multipart/form-data">
+    <input type="hidden" id="search_type" name="search_type" value="mnv">
+
     <div class="tab-panel active" id="mode-single">
-      <label for="single_mnv">Mã nhân viên (MNV)</label>
-      <input type="text" id="single_mnv" name="single_mnv" placeholder="VD: 4167969">
+      <label id="single-label" for="single_mnv">Mã nhân viên (MNV)</label>
+      <input type="text" id="single_mnv" name="single_mnv" placeholder="VD: 4167969" required>
     </div>
 
     <div class="tab-panel" id="mode-list">
-      <label for="ds_file">Danh sách nhân viên cần tìm (.xlsx)</label>
+      <label id="list-label" for="ds_file">Danh sách nhân viên cần tìm (.xlsx)</label>
       <input type="file" id="ds_file" name="ds_file" accept=".xlsx">
-      <p class="muted">
+      <p class="muted" id="list-hint">
         File phải theo đúng định dạng chuẩn: <strong>STT ở cột A</strong>, <strong>MNV ở cột C</strong>.
       </p>
     </div>
 
     <label for="baocao_file">File "BÁO CÁO ĐÀO TẠO" mới nhất (.xlsx)</label>
     <input type="file" id="baocao_file" name="baocao_file" accept=".xlsx" required>
-    <p class="muted">Dùng để tra CCCD khi không tìm thấy PDF trên Drive.</p>
+    <p class="muted">Dùng để tra đổi qua lại giữa MNV và CCCD khi cần.</p>
 
     <button type="submit">Bắt đầu tìm kiếm</button>
   </form>
 </div>
 
 <script>
+const LABELS = {
+  mnv: {
+    single: "Mã nhân viên (MNV)",
+    placeholder: "VD: 4167969",
+    list: "Danh sách nhân viên cần tìm (.xlsx)",
+    hint: 'File phải theo đúng định dạng chuẩn: <strong>STT ở cột A</strong>, <strong>MNV ở cột C</strong>.',
+  },
+  cccd: {
+    single: "Căn cước công dân (CCCD)",
+    placeholder: "VD: 079184001234",
+    list: "Danh sách CCCD cần tìm (.xlsx)",
+    hint: 'File phải theo đúng định dạng chuẩn: <strong>STT ở cột A</strong>, <strong>CCCD ở cột C</strong>.',
+  },
+};
+
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
     btn.classList.add("active");
 
+    const searchType = btn.dataset.searchType;
     const mode = btn.dataset.mode;
+    const labels = LABELS[searchType];
+
+    document.getElementById("search_type").value = searchType;
+
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
     document.getElementById(`mode-${mode}`).classList.add("active");
+
     document.getElementById("single_mnv").required = (mode === "single");
     document.getElementById("ds_file").required = (mode === "list");
+
+    document.getElementById("single-label").textContent = labels.single;
+    document.getElementById("single_mnv").placeholder = labels.placeholder;
+    document.getElementById("list-label").textContent = labels.list;
+    document.getElementById("list-hint").innerHTML = labels.hint;
   });
 });
 </script>

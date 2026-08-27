@@ -39,16 +39,20 @@ async def create_job(
     baocao_file: UploadFile,
     ds_file: UploadFile | None = None,
     single_mnv: str = Form(""),
+    search_type: str = Form("mnv"),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if search_type not in ("mnv", "cccd"):
+        raise HTTPException(status_code=400, detail="search_type không hợp lệ")
+
     has_ds_file = ds_file is not None and bool(ds_file.filename)
     mnv = normalize_code(single_mnv)
 
     if has_ds_file and mnv:
-        raise HTTPException(status_code=400, detail="Chỉ chọn 1 trong 2: nhập MNV hoặc upload danh sách")
+        raise HTTPException(status_code=400, detail="Chỉ chọn 1 trong 2: nhập mã hoặc upload danh sách")
     if not has_ds_file and not mnv:
-        raise HTTPException(status_code=400, detail="Cần nhập MNV hoặc upload danh sách DS.xlsx")
+        raise HTTPException(status_code=400, detail="Cần nhập mã hoặc upload danh sách")
 
     job = Job(
         user_id=user.id,
@@ -56,6 +60,7 @@ async def create_job(
         ds_filename=ds_file.filename if has_ds_file else None,
         baocao_filename=baocao_file.filename,
         single_mnv=mnv or None,
+        search_type=search_type,
     )
     db.add(job)
     db.commit()

@@ -40,3 +40,6 @@ def _run_lightweight_migrations():
         if "single_mnv" not in cols:
             conn.exec_driver_sql("ALTER TABLE jobs ADD COLUMN single_mnv VARCHAR(50)")
             conn.commit()
+        if "search_type" not in cols:
+            conn.exec_driver_sql("ALTER TABLE jobs ADD COLUMN search_type VARCHAR(10) DEFAULT 'mnv'")
+            conn.commit()

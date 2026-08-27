@@ -1,6 +1,6 @@
 from openpyxl import Workbook, load_workbook
 
-from app.jobs.textnorm import find_column, is_numeric, locate_header_row, normalize_code
+from app.jobs.textnorm import cccd_key, find_column, is_numeric, locate_header_row, normalize_code
 
 # DS.xlsx đã được chuẩn hoá: STT luôn ở cột A (index 0), MNV luôn ở cột C (index 2).
 # Cột D (Họ và tên) là best-effort — đọc nếu có, không bắt buộc.
@@ -48,10 +48,17 @@ def read_ds_list(path: str) -> list[dict]:
         workbook.close()
 
 
-def read_baocao_index(path: str) -> dict[str, dict]:
-    """Đọc file 'BÁO CÁO ĐÀO TẠO' -> dict[MNV] = {"cccd": str}.
+def read_cccd_list(path: str) -> list[dict]:
+    """Đọc danh sách CCCD cần tìm — cùng định dạng chuẩn với DS.xlsx (STT cột A, mã cột C)."""
 
-    Cột được dò theo TÊN header (dòng 1), không hardcode vị trí, vì file này đổi theo ngày
+    raw = read_ds_list(path)
+    return [{"stt": item["stt"], "cccd": item["mnv"], "ho_ten": item["ho_ten"]} for item in raw]
+
+
+def _read_baocao_rows(path: str) -> list[tuple[str, str]]:
+    """Đọc file 'BÁO CÁO ĐÀO TẠO' -> list[(mnv, cccd)].
+
+    Cột được dò theo TÊN header, không hardcode vị trí, vì file này đổi theo ngày
     và có thể lệch thứ tự cột.
     """
 
@@ -60,7 +67,7 @@ def read_baocao_index(path: str) -> dict[str, dict]:
         ws = workbook.active
         rows = [list(row) for row in ws.iter_rows(values_only=True)]
         if not rows:
-            return {}
+            return []
 
         header_idx = locate_header_row(rows, [BAOCAO_MNV_CANDIDATES, BAOCAO_CCCD_CANDIDATES])
         header = rows[header_idx]
@@ -74,7 +81,7 @@ def read_baocao_index(path: str) -> dict[str, dict]:
                 "Không tìm thấy cột 'Mã nhân viên' hoặc 'Số CMND/Hộ chiếu' trong file báo cáo đào tạo."
             )
 
-        index: dict[str, dict] = {}
+        result = []
         for row in data_rows:
             if idx_mnv >= len(row):
                 continue
@@ -84,11 +91,27 @@ def read_baocao_index(path: str) -> dict[str, dict]:
                 continue
 
             cccd = normalize_code(row[idx_cccd]) if idx_cccd < len(row) else ""
-            index[mnv] = {"cccd": cccd}
+            result.append((mnv, cccd))
 
-        return index
+        return result
     finally:
         workbook.close()
+
+
+def read_baocao_index(path: str) -> dict[str, dict]:
+    """dict[MNV] = {"cccd": str} — dùng khi đã biết MNV, cần tra ra CCCD."""
+
+    return {mnv: {"cccd": cccd} for mnv, cccd in _read_baocao_rows(path)}
+
+
+def read_baocao_cccd_to_mnv(path: str) -> dict[str, str]:
+    """dict[cccd_key(CCCD)] = MNV — chiều ngược lại read_baocao_index(), dùng khi tìm theo CCCD."""
+
+    result: dict[str, str] = {}
+    for mnv, cccd in _read_baocao_rows(path):
+        if cccd:
+            result[cccd_key(cccd)] = mnv
+    return result
 
 
 NOT_FOUND_COLUMNS = [

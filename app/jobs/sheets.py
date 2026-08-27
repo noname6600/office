@@ -4,7 +4,7 @@ import re
 
 import httpx
 
-from app.jobs.textnorm import find_column, locate_header_row, normalize_code
+from app.jobs.textnorm import cccd_key, find_column, locate_header_row, normalize_code
 
 SPREADSHEET_ID_RE = re.compile(r"/spreadsheets/d/([a-zA-Z0-9-_]+)")
 GID_RE = re.compile(r"[?&#]gid=(\d+)")
@@ -13,6 +13,7 @@ CCCD_CANDIDATES = ["CCCD", "Số CMND/Hộ chiếu", "Số CMND"]
 NGAY_VIET_HO_SO_CANDIDATES = ["Ngày viết hồ sơ"]
 NGUON_CANDIDATES = ["Nguồn"]
 MNV_CANDIDATES = ["Mã nhân viên", "Mã NV", "MNV"]
+CHECKLIST_CCCD_CANDIDATES = ["Số CMND/Hộ chiếu", "CCCD", "Số CMND"]
 
 def parse_sheet_url(url: str) -> tuple[str, str]:
     match = SPREADSHEET_ID_RE.search(url)
@@ -68,12 +69,38 @@ def build_cccd_index(rows: list[list[str]]) -> dict[str, dict]:
         if not cccd:
             continue
 
-        index[cccd] = {
+        index[cccd_key(cccd)] = {
             "nguon": row[idx_nguon].strip() if idx_nguon is not None and idx_nguon < len(row) else "",
             "ngay_viet_ho_so": row[idx_ngay].strip() if idx_ngay is not None and idx_ngay < len(row) else "",
         }
 
     return index
+
+
+def build_checklist_cccd_index(rows: list[list[str]]) -> dict[str, str]:
+    """dict[cccd_key(CCCD)] = MNV (rỗng nếu dòng checklist chưa có MNV) — dùng khi tìm theo CCCD."""
+
+    header_idx = locate_header_row(rows, [CHECKLIST_CCCD_CANDIDATES])
+    headers = rows[header_idx]
+    data_rows = rows[header_idx + 1 :]
+
+    idx_cccd = find_column(headers, CHECKLIST_CCCD_CANDIDATES)
+    idx_mnv = find_column(headers, MNV_CANDIDATES)
+
+    result: dict[str, str] = {}
+    if idx_cccd is None:
+        return result
+
+    for row in data_rows:
+        if idx_cccd >= len(row):
+            continue
+        cccd = normalize_code(row[idx_cccd])
+        if not cccd:
+            continue
+        mnv = normalize_code(row[idx_mnv]) if idx_mnv is not None and idx_mnv < len(row) else ""
+        result[cccd_key(cccd)] = mnv
+
+    return result
 
 
 def build_mnv_set(rows: list[list[str]]) -> set[str]:
