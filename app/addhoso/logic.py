@@ -69,13 +69,14 @@ def warm_baocao_cache(session_id: int, baocao_path: str) -> None:
 
 def compute_dates(baocao_row: dict) -> dict:
     """Ngày nhận việc = Ngày bắt đầu HĐTN = 'Ngày vào công ty' trong báo cáo đào tạo.
-    Ngày kết thúc HĐTN = Ngày bắt đầu HĐTN + 30 ngày lịch.
+    Ngày kết thúc HĐTN = ngày thứ 30 tính từ ngày bắt đầu, TÍNH LUÔN ngày bắt đầu là
+    ngày thứ 1 (VD: bắt đầu 10/08 -> ngày thứ 30 là 08/09) -> lệch 29 ngày, không phải 30.
     """
 
     ngay_nhan_viec_raw = baocao_row.get("ngay_vao_cong_ty")
     ngay_ket_thuc_raw = None
     if isinstance(ngay_nhan_viec_raw, datetime.datetime | datetime.date):
-        ngay_ket_thuc_raw = ngay_nhan_viec_raw + datetime.timedelta(days=30)
+        ngay_ket_thuc_raw = ngay_nhan_viec_raw + datetime.timedelta(days=29)
 
     return {"ngay_nhan_viec_raw": ngay_nhan_viec_raw, "ngay_ket_thuc_raw": ngay_ket_thuc_raw}
 
