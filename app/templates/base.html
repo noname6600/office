@@ -81,6 +81,13 @@
     }
     .modal-close:hover { color: #1a1a1a; background: none; }
     .modal-box iframe { flex: 1; border: none; width: 100%; }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.5); border-top-color: #fff;
+      animation: spin 0.7s linear infinite; vertical-align: -2px; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    button:disabled, .btn:disabled { opacity: 0.7; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -88,6 +95,7 @@
     <strong>Tra cứu hồ sơ nhân viên</strong>
     <div>
       <a href="/upload">Tạo job mới</a>
+      <a href="/addhoso">Thêm hồ sơ mới</a>
       <a href="/settings">Cấu hình</a>
       <a href="/auth/logout">Đăng xuất</a>
     </div>

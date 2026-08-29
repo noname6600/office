@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Thêm hồ sơ mới{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Thêm hồ sơ vào Checklist</h2>
+  <p class="muted">Đang dùng báo cáo đào tạo: <strong>{{ add_session.baocao_filename }}</strong></p>
+  <form action="/addhoso/reset" method="post">
+    <button type="submit" class="btn btn-secondary">Đổi báo cáo đào tạo khác</button>
+  </form>
+</div>
+
+<div class="card">
+  <label for="cccd_input">Nhập CCCD</label>
+  <input type="text" id="cccd_input" placeholder="VD: 079184001234 (Enter để tra cứu)">
+  <button type="button" id="lookup-btn">Tra cứu</button>
+
+  <p id="error-msg" style="color:#991b1b;"></p>
+  <p id="success-msg" style="color:#166534;"></p>
+
+  <table id="result-table" style="display:none; margin-top:16px;">
+    <tr><th>Trạng thái</th><td id="r-co-o-ho-so"></td></tr>
+    <tr><th>Họ và tên</th><td id="r-ho-ten"></td></tr>
+    <tr><th>CCCD</th><td id="r-cccd"></td></tr>
+    <tr><th>Ngày phỏng vấn</th><td id="r-ngay-phong-van"></td></tr>
+    <tr><th>Ngày nhận việc</th><td id="r-ngay-nhan-viec"></td></tr>
+    <tr><th>Mã nhân viên</th><td id="r-mnv"></td></tr>
+    <tr><th>Ngày bắt đầu HĐTN</th><td id="r-ngay-bat-dau"></td></tr>
+    <tr><th>Ngày kết thúc HĐTN</th><td id="r-ngay-ket-thuc"></td></tr>
+  </table>
+  <button type="button" id="add-btn" class="btn" style="display:none;">Thêm vào Checklist</button>
+</div>
+
+<script>
+let currentCccd = "";
+
+function resetMessages() {
+  document.getElementById("error-msg").textContent = "";
+  document.getElementById("success-msg").textContent = "";
+}
+
+function setBusy(btn, busy, busyLabel, idleLabel) {
+  btn.disabled = busy;
+  btn.innerHTML = busy ? `<span class="spinner"></span>${busyLabel}` : idleLabel;
+}
+
+async function doLookup() {
+  const cccd = document.getElementById("cccd_input").value.trim();
+  resetMessages();
+  document.getElementById("result-table").style.display = "none";
+  document.getElementById("add-btn").style.display = "none";
+  if (!cccd) return;
+
+  const lookupBtn = document.getElementById("lookup-btn");
+  setBusy(lookupBtn, true, "Đang tra cứu...", "Tra cứu");
+
+  try {
+    const resp = await fetch(`/addhoso/lookup?cccd=${encodeURIComponent(cccd)}`);
+    const data = await resp.json();
+
+    if (data.error) {
+      document.getElementById("error-msg").textContent = data.error;
+      return;
+    }
+
+    currentCccd = cccd;
+    document.getElementById("r-co-o-ho-so").textContent = data.co_o_ho_so_da_nhan || "";
+    document.getElementById("r-ho-ten").textContent = data.ho_ten || "";
+    document.getElementById("r-cccd").textContent = data.cccd || "";
+    document.getElementById("r-ngay-phong-van").textContent = data.ngay_phong_van || "";
+    document.getElementById("r-ngay-nhan-viec").textContent = data.ngay_nhan_viec || "";
+    document.getElementById("r-mnv").textContent = data.mnv || "";
+    document.getElementById("r-ngay-bat-dau").textContent = data.ngay_bat_dau_hdtn || "";
+    document.getElementById("r-ngay-ket-thuc").textContent = data.ngay_ket_thuc_hdtn || "";
+    document.getElementById("result-table").style.display = "table";
+    document.getElementById("add-btn").style.display = "inline-block";
+  } catch (e) {
+    document.getElementById("error-msg").textContent = "Không kết nối được tới server.";
+  } finally {
+    setBusy(lookupBtn, false, "", "Tra cứu");
+  }
+}
+
+document.getElementById("lookup-btn").addEventListener("click", doLookup);
+
+document.getElementById("cccd_input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    doLookup();
+  }
+});
+
+document.getElementById("add-btn").addEventListener("click", async () => {
+  resetMessages();
+
+  const addBtn = document.getElementById("add-btn");
+  setBusy(addBtn, true, "Đang thêm...", "Thêm vào Checklist");
+
+  try {
+    const formData = new FormData();
+    formData.append("cccd", currentCccd);
+
+    const resp = await fetch("/addhoso/add", { method: "POST", body: formData });
+    const data = await resp.json().catch(() => ({}));
+
+    if (!resp.ok) {
+      document.getElementById("error-msg").textContent = data.detail || "Có lỗi xảy ra.";
+      return;
+    }
+
+    document.getElementById("success-msg").textContent = "Đã thêm thành công vào Checklist!";
+    document.getElementById("result-table").style.display = "none";
+    document.getElementById("add-btn").style.display = "none";
+    document.getElementById("cccd_input").value = "";
+    document.getElementById("cccd_input").focus();
+  } catch (e) {
+    document.getElementById("error-msg").textContent = "Không kết nối được tới server.";
+  } finally {
+    setBusy(addBtn, false, "", "Thêm vào Checklist");
+  }
+});
+</script>
+{% endblock %}

@@ -44,6 +44,18 @@ class Settings(Base):
     user: Mapped["User"] = relationship(back_populates="settings")
 
 
+class AddSession(Base):
+    """1 phiên làm việc của tab 'Thêm hồ sơ vào Checklist' — upload báo cáo đào tạo 1 lần,
+    dùng để tra CCCD nhiều lần trong cùng phiên."""
+
+    __tablename__ = "add_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    baocao_filename: Mapped[str] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
+
+
 class Job(Base):
     __tablename__ = "jobs"
 

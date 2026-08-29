@@ -15,6 +15,7 @@ OAUTH_SCOPES = [
     "openid",
     "https://www.googleapis.com/auth/userinfo.email",
     *config.DRIVE_SCOPES,
+    "https://www.googleapis.com/auth/spreadsheets",
 ]
 
 

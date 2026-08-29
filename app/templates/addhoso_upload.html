@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Thêm hồ sơ mới{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Thêm hồ sơ vào Checklist</h2>
+  <p class="muted">
+    Upload file "BÁO CÁO ĐÀO TẠO" mới nhất — dùng để tra cứu nhiều lần trong phiên này
+    (không cần upload lại cho mỗi CCCD).
+  </p>
+  <form id="upload-form" action="/addhoso/sessions" method="post" enctype="multipart/form-data">
+    <label for="baocao_file">File "BÁO CÁO ĐÀO TẠO" (.xlsx)</label>
+    <input type="file" id="baocao_file" name="baocao_file" accept=".xlsx" required>
+    <button type="submit" id="upload-btn">Bắt đầu</button>
+  </form>
+</div>
+
+<script>
+document.getElementById("upload-form").addEventListener("submit", () => {
+  const btn = document.getElementById("upload-btn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Đang xử lý file (file lớn có thể mất khoảng 15-20 giây)...';
+});
+</script>
+{% endblock %}

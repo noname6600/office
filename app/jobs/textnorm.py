@@ -2,6 +2,33 @@
 mà không phụ thuộc vào thứ tự cột cố định.
 """
 
+import datetime
+
+_DATE_FORMATS = ["%d/%m/%Y", "%m/%d/%Y", "%Y-%m-%d", "%d-%m-%Y"]
+
+
+def parse_date_value(value) -> datetime.datetime | None:
+    """Chuẩn hoá 1 giá trị ngày về datetime, dù cell Excel lưu kiểu Date thật hay bị lưu
+    nhầm thành text (VD: "01/04/2026") — ưu tiên D/M/Y (quy ước Việt Nam)."""
+
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        return value
+    if isinstance(value, datetime.date):
+        return datetime.datetime(value.year, value.month, value.day)
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return None
+
 
 def normalize_header(value) -> str:
     if value is None:

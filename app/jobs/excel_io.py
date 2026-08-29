@@ -1,6 +1,6 @@
 from openpyxl import Workbook, load_workbook
 
-from app.jobs.textnorm import cccd_key, find_column, is_numeric, locate_header_row, normalize_code
+from app.jobs.textnorm import cccd_key, find_column, is_numeric, locate_header_row, normalize_code, parse_date_value
 
 # DS.xlsx đã được chuẩn hoá: STT luôn ở cột A (index 0), MNV luôn ở cột C (index 2).
 # Không đọc thêm cột nào khác làm Họ và tên — các file thực tế đặt cột D khác nhau tuỳ nguồn
@@ -11,6 +11,25 @@ DS_MNV_COL = 2
 BAOCAO_MNV_CANDIDATES = ["Mã nhân viên", "Mã NV", "MNV"]
 BAOCAO_CCCD_CANDIDATES = ["Số CMND/Hộ chiếu", "CCCD", "Số CMND"]
 BAOCAO_HOTEN_CANDIDATES = ["Họ và tên", "Họ tên"]
+
+# Các cột bổ sung dùng khi ghi đầy đủ 1 dòng mới vào sheet checklist (xem read_baocao_full_index).
+# key ở đây phải khớp với field name dùng trong app/addhoso.
+BAOCAO_EXTRA_FIELD_CANDIDATES: dict[str, list[str]] = {
+    "job": ["Job"],
+    "chuc_danh": ["Chức danh"],
+    "gioi_tinh": ["Giới tính"],
+    "ngay_sinh": ["Ngày sinh"],
+    "noi_sinh": ["Nơi sinh"],
+    "dia_chi_thuong_tru": ["Địa chỉ thường trú"],
+    "dia_chi_hien_tai": ["Địa chỉ hiện tại"],
+    "ngay_cap": ["Ngày cấp"],
+    "noi_cap": ["Nơi cấp"],
+    "dien_thoai": ["Điện thoại di động", "Điện thoại"],
+    "ngay_vao_cong_ty": ["Ngày vào công ty"],
+    # Header thật đôi khi có xuống dòng "Phòng/Vùng/\nMiền" -> sau chuẩn hoá thành có khoảng
+    # trắng thừa "Phòng/Vùng/ Miền", nên liệt kê cả 2 biến thể.
+    "phong_vung_mien": ["Phòng/Vùng/Miền", "Phòng/Vùng/ Miền"],
+}
 
 
 def _find_data_start_row(ws, max_scan: int = 20) -> int:
@@ -53,11 +72,20 @@ def read_cccd_list(path: str) -> list[dict]:
     return [{"stt": item["stt"], "cccd": item["mnv"], "ho_ten": item["ho_ten"]} for item in raw]
 
 
-def _read_baocao_rows(path: str) -> list[tuple[str, str]]:
-    """Đọc file 'BÁO CÁO ĐÀO TẠO' -> list[{"mnv", "cccd", "ho_ten"}].
+def _cell_text(value) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _read_baocao_rows(path: str) -> list[dict]:
+    """Đọc file 'BÁO CÁO ĐÀO TẠO' -> list[dict] (mnv, cccd, ho_ten + các field ở
+    BAOCAO_EXTRA_FIELD_CANDIDATES).
 
     Cột được dò theo TÊN header, không hardcode vị trí, vì file này đổi theo ngày
-    và có thể lệch thứ tự cột. Cột Họ và tên là best-effort — không bắt buộc phải có.
+    và có thể lệch thứ tự cột. Ngoài mnv/cccd, mọi cột khác là best-effort — thiếu
+    cột nào thì field đó trả về None, không raise lỗi (chỉ mnv/cccd là bắt buộc).
     """
 
     workbook = load_workbook(path, read_only=True, data_only=True)
@@ -80,6 +108,8 @@ def _read_baocao_rows(path: str) -> list[tuple[str, str]]:
                 "Không tìm thấy cột 'Mã nhân viên' hoặc 'Số CMND/Hộ chiếu' trong file báo cáo đào tạo."
             )
 
+        extra_idx = {key: find_column(header, candidates) for key, candidates in BAOCAO_EXTRA_FIELD_CANDIDATES.items()}
+
         result = []
         for row in data_rows:
             if idx_mnv >= len(row):
@@ -90,12 +120,19 @@ def _read_baocao_rows(path: str) -> list[tuple[str, str]]:
                 continue
 
             cccd = normalize_code(row[idx_cccd]) if idx_cccd < len(row) else ""
+            ho_ten = _cell_text(row[idx_hoten]) if idx_hoten is not None and idx_hoten < len(row) else None
 
-            ho_ten = None
-            if idx_hoten is not None and idx_hoten < len(row) and row[idx_hoten] is not None:
-                ho_ten = str(row[idx_hoten]).strip() or None
+            entry = {"mnv": mnv, "cccd": cccd, "ho_ten": ho_ten}
+            for key, idx in extra_idx.items():
+                entry[key] = row[idx] if idx is not None and idx < len(row) else None
+                if key in ("ngay_sinh", "ngay_cap", "ngay_vao_cong_ty"):
+                    # Có file lưu 3 cột này dạng Date thật, có file lại lưu dạng text
+                    # (VD: "01/04/2026") -> chuẩn hoá về datetime cho cả 2 trường hợp.
+                    entry[key] = parse_date_value(entry[key])
+                else:
+                    entry[key] = _cell_text(entry[key])
 
-            result.append({"mnv": mnv, "cccd": cccd, "ho_ten": ho_ten})
+            result.append(entry)
 
         return result
     finally:
@@ -115,6 +152,18 @@ def read_baocao_cccd_index(path: str) -> dict[str, dict]:
     for r in _read_baocao_rows(path):
         if r["cccd"]:
             result[cccd_key(r["cccd"])] = {"mnv": r["mnv"], "ho_ten": r["ho_ten"]}
+    return result
+
+
+def read_baocao_full_index(path: str) -> dict[str, dict]:
+    """dict[cccd_key(CCCD)] = toàn bộ thông tin nhân viên (mnv, ho_ten + các field cá nhân khác)
+    lấy từ báo cáo đào tạo — dùng để fill đầy đủ 1 dòng mới vào sheet checklist.
+    """
+
+    result: dict[str, dict] = {}
+    for r in _read_baocao_rows(path):
+        if r["cccd"]:
+            result[cccd_key(r["cccd"])] = r
     return result
 
 

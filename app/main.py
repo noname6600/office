@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import config
+from app.addhoso.routes import router as addhoso_router
 from app.auth.routes import router as auth_router
 from app.db import init_db
 from app.deps import get_current_user
@@ -22,6 +23,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(settings_router)
 app.include_router(jobs_router)
+app.include_router(addhoso_router)
 
 
 @app.on_event("startup")
