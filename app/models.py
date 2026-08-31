@@ -54,6 +54,7 @@ class AddSession(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     baocao_filename: Mapped[str] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
+    added_count: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class Job(Base):

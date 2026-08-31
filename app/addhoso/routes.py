@@ -144,4 +144,7 @@ def add_to_checklist(
             ),
         ) from exc
 
-    return {"success": True}
+    add_session.added_count += 1
+    db.commit()
+
+    return {"success": True, "added_count": add_session.added_count}

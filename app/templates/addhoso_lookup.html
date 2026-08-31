@@ -7,6 +7,7 @@
 <div class="card">
   <h2>Thêm hồ sơ vào Checklist</h2>
   <p class="muted">Đang dùng báo cáo đào tạo: <strong>{{ add_session.baocao_filename }}</strong></p>
+  <p class="muted">Đã thêm thành công trong phiên này: <strong id="added-count">{{ add_session.added_count }}</strong> người</p>
   <form action="/addhoso/reset" method="post">
     <button type="submit" class="btn btn-secondary">Đổi báo cáo đào tạo khác</button>
   </form>
@@ -149,6 +150,9 @@ async function doAdd() {
     }
 
     document.getElementById("success-msg").textContent = "Đã thêm thành công vào Checklist!";
+    if (typeof data.added_count === "number") {
+      document.getElementById("added-count").textContent = data.added_count;
+    }
     document.getElementById("result-table").style.display = "none";
     document.getElementById("add-btn").style.display = "none";
     document.getElementById("cccd_input").value = "";
