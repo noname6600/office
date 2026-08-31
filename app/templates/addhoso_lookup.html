@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Thêm hồ sơ mới{% endblock %}
 {% block content %}
+<style>
+  #r-co-o-ho-so.status-found { color: #166534; font-weight: 700; }
+</style>
 <div class="card">
   <h2>Thêm hồ sơ vào Checklist</h2>
   <p class="muted">Đang dùng báo cáo đào tạo: <strong>{{ add_session.baocao_filename }}</strong></p>
@@ -16,6 +19,7 @@
 
   <p id="error-msg" style="color:#991b1b;"></p>
   <p id="success-msg" style="color:#166534;"></p>
+  <p id="already-msg" style="color:#6b7280; display:none;">Người này đã có trong checklist.</p>
 
   <table id="result-table" style="display:none; margin-top:16px;">
     <tr><th>Trạng thái</th><td id="r-co-o-ho-so"></td></tr>
@@ -32,10 +36,13 @@
 
 <script>
 let currentCccd = "";
+let pendingCccd = null;   // CCCD vừa tra, tìm thấy, nhưng CHƯA bấm Add
+let pendingName = null;
 
 function resetMessages() {
   document.getElementById("error-msg").textContent = "";
   document.getElementById("success-msg").textContent = "";
+  document.getElementById("already-msg").style.display = "none";
 }
 
 function setBusy(btn, busy, busyLabel, idleLabel) {
@@ -45,10 +52,26 @@ function setBusy(btn, busy, busyLabel, idleLabel) {
 
 async function doLookup() {
   const cccd = document.getElementById("cccd_input").value.trim();
+  if (!cccd) return;
+
+  // Người tra TRƯỚC ĐÓ chưa bấm Add mà giờ tra tiếp người khác -> nhắc trước khi qua người mới
+  if (pendingCccd && pendingCccd !== cccd) {
+    const oldCccd = pendingCccd;
+    const oldName = pendingName;
+
+    if (window.confirm(`Bạn chưa thêm "${oldName || oldCccd}" vào checklist. Thêm trước khi tiếp tục không?`)) {
+      currentCccd = oldCccd;
+      const added = await doAdd();
+      if (!added) return; // lỗi khi thêm -> dừng lại, để user thấy lỗi, không tra tiếp người mới
+    }
+
+    pendingCccd = null;
+    pendingName = null;
+  }
+
   resetMessages();
   document.getElementById("result-table").style.display = "none";
   document.getElementById("add-btn").style.display = "none";
-  if (!cccd) return;
 
   const lookupBtn = document.getElementById("lookup-btn");
   setBusy(lookupBtn, true, "Đang tra cứu...", "Tra cứu");
@@ -63,7 +86,10 @@ async function doLookup() {
     }
 
     currentCccd = cccd;
-    document.getElementById("r-co-o-ho-so").textContent = data.co_o_ho_so_da_nhan || "";
+    const statusCell = document.getElementById("r-co-o-ho-so");
+    statusCell.textContent = data.co_o_ho_so_da_nhan || "";
+    statusCell.classList.toggle("status-found", !!data.co_o_ho_so_da_nhan);
+
     document.getElementById("r-ho-ten").textContent = data.ho_ten || "";
     document.getElementById("r-cccd").textContent = data.cccd || "";
     document.getElementById("r-ngay-phong-van").textContent = data.ngay_phong_van || "";
@@ -72,7 +98,17 @@ async function doLookup() {
     document.getElementById("r-ngay-bat-dau").textContent = data.ngay_bat_dau_hdtn || "";
     document.getElementById("r-ngay-ket-thuc").textContent = data.ngay_ket_thuc_hdtn || "";
     document.getElementById("result-table").style.display = "table";
-    document.getElementById("add-btn").style.display = "inline-block";
+
+    if (data.already_in_checklist) {
+      document.getElementById("already-msg").style.display = "block";
+      document.getElementById("add-btn").style.display = "none";
+      pendingCccd = null;
+      pendingName = null;
+    } else {
+      document.getElementById("add-btn").style.display = "inline-block";
+      pendingCccd = cccd;
+      pendingName = data.ho_ten;
+    }
   } catch (e) {
     document.getElementById("error-msg").textContent = "Không kết nối được tới server.";
   } finally {
@@ -89,7 +125,7 @@ document.getElementById("cccd_input").addEventListener("keydown", (e) => {
   }
 });
 
-document.getElementById("add-btn").addEventListener("click", async () => {
+async function doAdd() {
   resetMessages();
 
   const addBtn = document.getElementById("add-btn");
@@ -104,7 +140,12 @@ document.getElementById("add-btn").addEventListener("click", async () => {
 
     if (!resp.ok) {
       document.getElementById("error-msg").textContent = data.detail || "Có lỗi xảy ra.";
-      return;
+      return false;
+    }
+
+    if (currentCccd === pendingCccd) {
+      pendingCccd = null;
+      pendingName = null;
     }
 
     document.getElementById("success-msg").textContent = "Đã thêm thành công vào Checklist!";
@@ -112,11 +153,15 @@ document.getElementById("add-btn").addEventListener("click", async () => {
     document.getElementById("add-btn").style.display = "none";
     document.getElementById("cccd_input").value = "";
     document.getElementById("cccd_input").focus();
+    return true;
   } catch (e) {
     document.getElementById("error-msg").textContent = "Không kết nối được tới server.";
+    return false;
   } finally {
     setBusy(addBtn, false, "", "Thêm vào Checklist");
   }
-});
+}
+
+document.getElementById("add-btn").addEventListener("click", doAdd);
 </script>
 {% endblock %}

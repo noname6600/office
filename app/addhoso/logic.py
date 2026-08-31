@@ -24,6 +24,12 @@ _BAOCAO_INDEX_CACHE: "OrderedDict[int, dict[str, dict]]" = OrderedDict()
 _LINK1_CACHE_TTL_SECONDS = 600  # 10 phút — sheet này chỉ dùng hiển thị tham khảo, không phải check trùng
 _link1_cache: dict[str, tuple[float, dict]] = {}
 
+# Cache TTL ngắn hơn cho checklist vì dùng để báo "đã có/chưa có" ngay lúc tra cứu —
+# cần mới hơn link1, nhưng KHÔNG dùng cache này để check trùng thật lúc bấm Add (luôn
+# tải mới riêng ở đó, xem app/addhoso/routes.py).
+_CHECKLIST_CACHE_TTL_SECONDS = 60
+_checklist_cache: dict[str, tuple[float, dict]] = {}
+
 
 def _get_baocao_index(session_id: int, baocao_path: str) -> dict[str, dict]:
     if session_id in _BAOCAO_INDEX_CACHE:
@@ -54,6 +60,20 @@ def get_link1_index(sheet_link1_url: str) -> dict[str, dict]:
     return index
 
 
+def get_checklist_index_cached(sheet_checklist_url: str) -> dict[str, str]:
+    """Bản có cache (TTL ngắn) của build_checklist_cccd_index — chỉ dùng để hiển thị
+    trạng thái "đã có/chưa có" lúc tra cứu, KHÔNG dùng để check trùng thật lúc Add."""
+
+    now = time.monotonic()
+    cached = _checklist_cache.get(sheet_checklist_url)
+    if cached is not None and now - cached[0] < _CHECKLIST_CACHE_TTL_SECONDS:
+        return cached[1]
+
+    index = sheets.build_checklist_cccd_index(sheets.fetch_sheet_rows(sheet_checklist_url))
+    _checklist_cache[sheet_checklist_url] = (now, index)
+    return index
+
+
 def resolve_baocao_row(session_id: int, baocao_path: str, cccd: str) -> dict | None:
     index = _get_baocao_index(session_id, baocao_path)
     return index.get(cccd_key(cccd))
@@ -81,8 +101,10 @@ def compute_dates(baocao_row: dict) -> dict:
     return {"ngay_nhan_viec_raw": ngay_nhan_viec_raw, "ngay_ket_thuc_raw": ngay_ket_thuc_raw}
 
 
-def build_preview(session_id: int, baocao_path: str, sheet_link1_url: str, cccd: str) -> dict:
-    """Trả về đúng 7 field hiển thị, hoặc {"error": ...} nếu không tra được."""
+def build_preview(
+    session_id: int, baocao_path: str, sheet_link1_url: str, sheet_checklist_url: str, cccd: str
+) -> dict:
+    """Trả về 7 field hiển thị + trạng thái đã/chưa có trong checklist, hoặc {"error": ...}."""
 
     baocao_row = resolve_baocao_row(session_id, baocao_path, cccd)
     if baocao_row is None:
@@ -93,10 +115,14 @@ def build_preview(session_id: int, baocao_path: str, sheet_link1_url: str, cccd:
     ngay_phong_van = (link1_row or {}).get("ngay_viet_ho_so") or ""
     co_o_ho_so_da_nhan = "Có ở hồ sơ đã nhận" if link1_row else ""
 
+    checklist_index = get_checklist_index_cached(sheet_checklist_url)
+    already_in_checklist = cccd_key(cccd) in checklist_index
+
     dates = compute_dates(baocao_row)
 
     return {
         "co_o_ho_so_da_nhan": co_o_ho_so_da_nhan,
+        "already_in_checklist": already_in_checklist,
         "cccd": cccd,
         "mnv": baocao_row.get("mnv"),
         "ho_ten": baocao_row.get("ho_ten"),

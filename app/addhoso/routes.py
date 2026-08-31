@@ -95,7 +95,9 @@ def lookup_cccd(
     settings: Settings = db.get(Settings, user.id)
     baocao_path = os.path.join(_session_upload_dir(add_session.id), "baocao.xlsx")
 
-    return logic.build_preview(add_session.id, baocao_path, settings.sheet_received_url, cccd)
+    return logic.build_preview(
+        add_session.id, baocao_path, settings.sheet_received_url, settings.sheet_checklist_url, cccd
+    )
 
 
 @router.post("/add")
