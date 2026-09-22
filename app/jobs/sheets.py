@@ -208,6 +208,10 @@ def get_sheet_title(service, spreadsheet_id: str, gid: str) -> str:
     raise ValueError(f"Không tìm thấy sheet có gid={gid} trong spreadsheet {spreadsheet_id}")
 
 
+DATE_FORMAT_HEADER_CANDIDATES = [["Ngày sinh"], ["Ngày cấp"], ["Ngày vào Tập đoàn"]]
+_UPDATED_RANGE_ROW_RE = re.compile(r"![A-Z]+(\d+):")
+
+
 def append_checklist_row(service, sheet_url: str, header: list[str], data: dict) -> None:
     """Ghi 1 dòng mới vào cuối bảng checklist. Dùng insertDataOption=INSERT_ROWS để Google tự
     tìm dòng trống cuối bảng, không cần tự dò dòng cuối.
@@ -217,13 +221,51 @@ def append_checklist_row(service, sheet_url: str, header: list[str], data: dict)
     sheet_title = get_sheet_title(service, spreadsheet_id, gid)
     row = build_checklist_row(header, data)
 
-    service.spreadsheets().values().append(
-        spreadsheetId=spreadsheet_id,
-        range=f"'{sheet_title}'!A1",
-        valueInputOption="USER_ENTERED",
-        insertDataOption="INSERT_ROWS",
-        body={"values": [row]},
-    ).execute()
+    result = (
+        service.spreadsheets()
+        .values()
+        .append(
+            spreadsheetId=spreadsheet_id,
+            range=f"'{sheet_title}'!A1",
+            valueInputOption="USER_ENTERED",
+            insertDataOption="INSERT_ROWS",
+            body={"values": [row]},
+        )
+        .execute()
+    )
+
+    # Dòng mới append đôi khi kế thừa sai format (M/D cũ, hoặc không có format ngày nào cả
+    # -> hiện số serial thô). Ép lại number format D/M/YYYY riêng cho đúng dòng vừa ghi.
+    updated_range = result.get("updates", {}).get("updatedRange", "")
+    match = _UPDATED_RANGE_ROW_RE.search(updated_range)
+    if match:
+        _apply_date_format_to_row(service, spreadsheet_id, gid, header, int(match.group(1)))
+
+
+def _apply_date_format_to_row(service, spreadsheet_id: str, gid: str, header: list[str], row_number: int) -> None:
+    requests = []
+    for candidates in DATE_FORMAT_HEADER_CANDIDATES:
+        idx = find_column(header, candidates)
+        if idx is None:
+            continue
+        requests.append(
+            {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": int(gid),
+                        "startRowIndex": row_number - 1,
+                        "endRowIndex": row_number,
+                        "startColumnIndex": idx,
+                        "endColumnIndex": idx + 1,
+                    },
+                    "cell": {"userEnteredFormat": {"numberFormat": {"type": "DATE", "pattern": "d/m/yyyy"}}},
+                    "fields": "userEnteredFormat.numberFormat",
+                }
+            }
+        )
+
+    if requests:
+        service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={"requests": requests}).execute()
 
 
 def build_mnv_set(rows: list[list[str]]) -> set[str]:

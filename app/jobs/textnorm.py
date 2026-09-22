@@ -3,6 +3,20 @@ mà không phụ thuộc vào thứ tự cột cố định.
 """
 
 import datetime
+import re
+
+_MULTI_VALUE_SPLIT_RE = re.compile(r"[,.;\s]+")
+
+
+def split_multi_values(text: str) -> list[str]:
+    """Tách chuỗi nhập tay nhiều MNV/CCCD cùng lúc, cách nhau bằng dấu phẩy, chấm,
+    chấm phẩy, hoặc khoảng trắng (kể cả xuống dòng)."""
+
+    if not text:
+        return []
+
+    parts = _MULTI_VALUE_SPLIT_RE.split(text.strip())
+    return [normalize_code(p) for p in parts if p.strip()]
 
 _DATE_FORMATS = ["%d/%m/%Y", "%m/%d/%Y", "%Y-%m-%d", "%d-%m-%Y"]
 

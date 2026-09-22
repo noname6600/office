@@ -7,7 +7,7 @@ from app.auth.oauth import get_credentials_for_user
 from app.db import SessionLocal
 from app.jobs import drive, excel_io, sheets
 from app.jobs.matcher import build_cccd_conclusion, build_fallback_conclusion
-from app.jobs.textnorm import cccd_key
+from app.jobs.textnorm import cccd_key, split_multi_values
 from app.models import Job, JobResult, Settings
 
 logger = logging.getLogger(__name__)
@@ -58,14 +58,13 @@ def _run_job(job_id: int) -> None:
 def _run_mnv_job(db, job: Job) -> None:
     user = job.user
     settings: Settings = db.get(Settings, user.id)
-    credentials = get_credentials_for_user(db, user)
-    service = drive.build_drive_service(credentials)
 
     upload_dir = job_upload_dir(job.id)
     baocao_path = os.path.join(upload_dir, "baocao.xlsx")
 
     if job.single_mnv:
-        ds_list = [{"stt": "1", "mnv": job.single_mnv, "ho_ten": None}]
+        values = split_multi_values(job.single_mnv)
+        ds_list = [{"stt": str(i), "mnv": v, "ho_ten": None} for i, v in enumerate(values, start=1)]
     else:
         ds_path = os.path.join(upload_dir, "ds.xlsx")
         ds_list = excel_io.read_ds_list(ds_path)
@@ -76,9 +75,14 @@ def _run_mnv_job(db, job: Job) -> None:
     received_index = sheets.build_cccd_index(sheets.fetch_sheet_rows(settings.sheet_received_url))
     checklist_mnv_set = sheets.build_mnv_set(sheets.fetch_sheet_rows(settings.sheet_checklist_url))
 
-    mnv_list = [item["mnv"] for item in ds_list]
-    files = drive.list_pdfs_merged(service, [settings.drive_folder_1, settings.drive_folder_2])
-    file_index = drive.build_mnv_file_index(files, mnv_list)
+    if job.search_drive:
+        credentials = get_credentials_for_user(db, user)
+        service = drive.build_drive_service(credentials)
+        mnv_list = [item["mnv"] for item in ds_list]
+        files = drive.list_pdfs_merged(service, [settings.drive_folder_1, settings.drive_folder_2])
+        file_index = drive.build_mnv_file_index(files, mnv_list)
+    else:
+        file_index = {}
 
     job.total = len(ds_list)
     db.commit()
@@ -131,14 +135,13 @@ def _run_mnv_job(db, job: Job) -> None:
 def _run_cccd_job(db, job: Job) -> None:
     user = job.user
     settings: Settings = db.get(Settings, user.id)
-    credentials = get_credentials_for_user(db, user)
-    service = drive.build_drive_service(credentials)
 
     upload_dir = job_upload_dir(job.id)
     baocao_path = os.path.join(upload_dir, "baocao.xlsx")
 
     if job.single_mnv:
-        cccd_list = [{"stt": "1", "cccd": job.single_mnv, "ho_ten": None}]
+        values = split_multi_values(job.single_mnv)
+        cccd_list = [{"stt": str(i), "cccd": v, "ho_ten": None} for i, v in enumerate(values, start=1)]
     else:
         ds_path = os.path.join(upload_dir, "ds.xlsx")
         cccd_list = excel_io.read_cccd_list(ds_path)
@@ -153,10 +156,15 @@ def _run_cccd_job(db, job: Job) -> None:
     resolved_mnv_by_cccd = {
         item["cccd"]: (baocao_cccd_index.get(cccd_key(item["cccd"])) or {}).get("mnv") for item in cccd_list
     }
-    mnv_list = [mnv for mnv in resolved_mnv_by_cccd.values() if mnv]
 
-    files = drive.list_pdfs_merged(service, [settings.drive_folder_1, settings.drive_folder_2])
-    file_index = drive.build_mnv_file_index(files, mnv_list)
+    if job.search_drive:
+        credentials = get_credentials_for_user(db, user)
+        service = drive.build_drive_service(credentials)
+        mnv_list = [mnv for mnv in resolved_mnv_by_cccd.values() if mnv]
+        files = drive.list_pdfs_merged(service, [settings.drive_folder_1, settings.drive_folder_2])
+        file_index = drive.build_mnv_file_index(files, mnv_list)
+    else:
+        file_index = {}
 
     job.total = len(cccd_list)
     db.commit()

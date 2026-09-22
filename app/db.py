@@ -43,6 +43,9 @@ def _run_lightweight_migrations():
         if "search_type" not in cols:
             conn.exec_driver_sql("ALTER TABLE jobs ADD COLUMN search_type VARCHAR(10) DEFAULT 'mnv'")
             conn.commit()
+        if "search_drive" not in cols:
+            conn.exec_driver_sql("ALTER TABLE jobs ADD COLUMN search_drive BOOLEAN DEFAULT 1")
+            conn.commit()
 
         addsession_cols = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(add_sessions)").fetchall()]
         if addsession_cols and "added_count" not in addsession_cols:

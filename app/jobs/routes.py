@@ -15,7 +15,6 @@ from app.deps import get_current_user
 from app.jobs import excel_io
 from app.jobs.drive import download_file_bytes
 from app.jobs.runner import job_upload_dir, submit_job
-from app.jobs.textnorm import normalize_code
 from app.models import Job, JobResult, User
 from app.templating import templates
 
@@ -40,6 +39,7 @@ async def create_job(
     ds_file: UploadFile | None = None,
     single_mnv: str = Form(""),
     search_type: str = Form("mnv"),
+    search_drive: str | None = Form(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -47,20 +47,21 @@ async def create_job(
         raise HTTPException(status_code=400, detail="search_type không hợp lệ")
 
     has_ds_file = ds_file is not None and bool(ds_file.filename)
-    mnv = normalize_code(single_mnv)
+    direct_input = (single_mnv or "").strip()
 
-    if has_ds_file and mnv:
-        raise HTTPException(status_code=400, detail="Chỉ chọn 1 trong 2: nhập mã hoặc upload danh sách")
-    if not has_ds_file and not mnv:
-        raise HTTPException(status_code=400, detail="Cần nhập mã hoặc upload danh sách")
+    if has_ds_file and direct_input:
+        raise HTTPException(status_code=400, detail="Chỉ chọn 1 trong 2: nhập trực tiếp hoặc upload danh sách")
+    if not has_ds_file and not direct_input:
+        raise HTTPException(status_code=400, detail="Cần nhập trực tiếp hoặc upload danh sách")
 
     job = Job(
         user_id=user.id,
         status="pending",
         ds_filename=ds_file.filename if has_ds_file else None,
         baocao_filename=baocao_file.filename,
-        single_mnv=mnv or None,
+        single_mnv=direct_input or None,
         search_type=search_type,
+        search_drive=search_drive is not None,
     )
     db.add(job)
     db.commit()

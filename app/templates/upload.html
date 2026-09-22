@@ -5,32 +5,38 @@
   <h2>Tạo job tra cứu mới</h2>
 
   <div class="tabs">
-    <button type="button" class="tab-btn active" data-search-type="mnv" data-mode="single">MNV — 1 người</button>
-    <button type="button" class="tab-btn" data-search-type="mnv" data-mode="list">MNV — danh sách</button>
-    <button type="button" class="tab-btn" data-search-type="cccd" data-mode="single">CCCD — 1 người</button>
-    <button type="button" class="tab-btn" data-search-type="cccd" data-mode="list">CCCD — danh sách</button>
+    <button type="button" class="tab-btn active" data-search-type="mnv">MNV</button>
+    <button type="button" class="tab-btn" data-search-type="cccd">CCCD</button>
   </div>
 
-  <form action="/jobs" method="post" enctype="multipart/form-data">
+  <form id="job-form" action="/jobs" method="post" enctype="multipart/form-data">
     <input type="hidden" id="search_type" name="search_type" value="mnv">
 
-    <div class="tab-panel active" id="mode-single">
-      <label id="single-label" for="single_mnv">Mã nhân viên (MNV)</label>
-      <input type="text" id="single_mnv" name="single_mnv" placeholder="VD: 4167969" required>
-    </div>
+    <label id="direct-label" for="single_mnv">Nhập trực tiếp (cách nhau bằng dấu phẩy, chấm, chấm phẩy hoặc khoảng trắng)</label>
+    <textarea id="single_mnv" name="single_mnv" rows="3" placeholder="VD: 4167969, 4183781, 4183782"
+      style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; font-family:inherit;"></textarea>
 
-    <div class="tab-panel" id="mode-list">
-      <label id="list-label" for="ds_file">Danh sách nhân viên cần tìm (.xlsx)</label>
-      <input type="file" id="ds_file" name="ds_file" accept=".xlsx">
-      <p class="muted" id="list-hint">
-        File phải theo đúng định dạng chuẩn: <strong>STT ở cột A</strong>, <strong>MNV ở cột C</strong>.
-      </p>
-    </div>
+    <p class="muted" style="margin:10px 0; text-align:center;">— hoặc —</p>
+
+    <label id="list-label" for="ds_file">Upload danh sách (.xlsx)</label>
+    <input type="file" id="ds_file" name="ds_file" accept=".xlsx">
+    <p class="muted" id="list-hint">
+      File phải theo đúng định dạng chuẩn: <strong>STT ở cột A</strong>, <strong>MNV ở cột C</strong>.
+    </p>
+
+    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; margin-top:20px;">
+      <input type="checkbox" id="search_drive" name="search_drive" checked style="width:auto; margin:0;">
+      Tìm PDF trên Google Drive
+    </label>
+    <p class="muted" style="margin-top:2px;">
+      Bỏ tick nếu chỉ cần tra thông tin (không cần tìm/tải PDF) — bỏ qua bước quét Drive nên nhanh hơn nhiều.
+    </p>
 
     <label for="baocao_file">File "BÁO CÁO ĐÀO TẠO" mới nhất (.xlsx)</label>
     <input type="file" id="baocao_file" name="baocao_file" accept=".xlsx" required>
     <p class="muted">Dùng để tra đổi qua lại giữa MNV và CCCD khi cần.</p>
 
+    <p id="form-error" style="color:#991b1b;"></p>
     <button type="submit">Bắt đầu tìm kiếm</button>
   </form>
 </div>
@@ -38,15 +44,15 @@
 <script>
 const LABELS = {
   mnv: {
-    single: "Mã nhân viên (MNV)",
-    placeholder: "VD: 4167969",
-    list: "Danh sách nhân viên cần tìm (.xlsx)",
+    direct: "Nhập trực tiếp (cách nhau bằng dấu phẩy, chấm, chấm phẩy hoặc khoảng trắng)",
+    placeholder: "VD: 4167969, 4183781, 4183782",
+    list: "Upload danh sách (.xlsx)",
     hint: 'File phải theo đúng định dạng chuẩn: <strong>STT ở cột A</strong>, <strong>MNV ở cột C</strong>.',
   },
   cccd: {
-    single: "Căn cước công dân (CCCD)",
-    placeholder: "VD: 079184001234",
-    list: "Danh sách CCCD cần tìm (.xlsx)",
+    direct: "Nhập trực tiếp (cách nhau bằng dấu phẩy, chấm, chấm phẩy hoặc khoảng trắng)",
+    placeholder: "VD: 079184001234, 079184005678",
+    list: "Upload danh sách (.xlsx)",
     hint: 'File phải theo đúng định dạng chuẩn: <strong>STT ở cột A</strong>, <strong>CCCD ở cột C</strong>.',
   },
 };
@@ -57,22 +63,32 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     btn.classList.add("active");
 
     const searchType = btn.dataset.searchType;
-    const mode = btn.dataset.mode;
     const labels = LABELS[searchType];
 
     document.getElementById("search_type").value = searchType;
-
-    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-    document.getElementById(`mode-${mode}`).classList.add("active");
-
-    document.getElementById("single_mnv").required = (mode === "single");
-    document.getElementById("ds_file").required = (mode === "list");
-
-    document.getElementById("single-label").textContent = labels.single;
+    document.getElementById("direct-label").textContent = labels.direct;
     document.getElementById("single_mnv").placeholder = labels.placeholder;
     document.getElementById("list-label").textContent = labels.list;
     document.getElementById("list-hint").innerHTML = labels.hint;
   });
+});
+
+document.getElementById("job-form").addEventListener("submit", (e) => {
+  const direct = document.getElementById("single_mnv").value.trim();
+  const hasFile = document.getElementById("ds_file").files.length > 0;
+  const errorEl = document.getElementById("form-error");
+
+  if (direct && hasFile) {
+    e.preventDefault();
+    errorEl.textContent = "Chỉ chọn 1 trong 2: nhập trực tiếp hoặc upload danh sách, không dùng cả 2.";
+    return;
+  }
+  if (!direct && !hasFile) {
+    e.preventDefault();
+    errorEl.textContent = "Cần nhập trực tiếp hoặc upload danh sách.";
+    return;
+  }
+  errorEl.textContent = "";
 });
 </script>
 {% endblock %}

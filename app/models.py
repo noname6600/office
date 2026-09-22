@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -69,8 +69,9 @@ class Job(Base):
     )
     ds_filename: Mapped[str] = mapped_column(String(500), nullable=True)
     baocao_filename: Mapped[str] = mapped_column(String(500), nullable=True)
-    single_mnv: Mapped[str] = mapped_column(String(50), nullable=True)
+    single_mnv: Mapped[str] = mapped_column(Text, nullable=True)  # có thể chứa nhiều giá trị nhập tay
     search_type: Mapped[str] = mapped_column(String(10), default="mnv")  # "mnv" hoặc "cccd"
+    search_drive: Mapped[bool] = mapped_column(Boolean, default=True)  # False = bỏ qua quét Drive, chỉ tra fallback
     total: Mapped[int] = mapped_column(Integer, default=0)
     processed: Mapped[int] = mapped_column(Integer, default=0)
     found_count: Mapped[int] = mapped_column(Integer, default=0)
