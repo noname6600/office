@@ -9,23 +9,54 @@
   {% if request.query_params.get('saved') %}
     <p style="color:#166534;">Đã lưu cấu hình.</p>
   {% endif %}
+  <style>
+    .field-row { display: flex; gap: 8px; align-items: stretch; }
+    .field-row input { flex: 1; }
+    .field-row .btn { margin-top: 0; white-space: nowrap; }
+  </style>
   <form action="/settings" method="post">
     <label for="drive_folder_1">Folder Drive #1 (ID)</label>
-    <input type="text" id="drive_folder_1" name="drive_folder_1" value="{{ settings.drive_folder_1 }}" required>
+    <div class="field-row">
+      <input type="text" id="drive_folder_1" name="drive_folder_1" value="{{ settings.drive_folder_1 }}" required>
+      <button type="button" class="btn btn-secondary" onclick="openDriveFolder('drive_folder_1')">Mở</button>
+    </div>
 
     <label for="drive_folder_2">Folder Drive #2 (ID)</label>
-    <input type="text" id="drive_folder_2" name="drive_folder_2" value="{{ settings.drive_folder_2 }}" required>
+    <div class="field-row">
+      <input type="text" id="drive_folder_2" name="drive_folder_2" value="{{ settings.drive_folder_2 }}" required>
+      <button type="button" class="btn btn-secondary" onclick="openDriveFolder('drive_folder_2')">Mở</button>
+    </div>
 
     <label for="sheet_recruit_url">Google Sheet — Phòng tuyển dụng (link)</label>
-    <input type="url" id="sheet_recruit_url" name="sheet_recruit_url" value="{{ settings.sheet_recruit_url }}" required>
+    <div class="field-row">
+      <input type="url" id="sheet_recruit_url" name="sheet_recruit_url" value="{{ settings.sheet_recruit_url }}" required>
+      <button type="button" class="btn btn-secondary" onclick="openLink('sheet_recruit_url')">Mở</button>
+    </div>
 
     <label for="sheet_received_url">Google Sheet — Đã nhận hồ sơ (link)</label>
-    <input type="url" id="sheet_received_url" name="sheet_received_url" value="{{ settings.sheet_received_url }}" required>
+    <div class="field-row">
+      <input type="url" id="sheet_received_url" name="sheet_received_url" value="{{ settings.sheet_received_url }}" required>
+      <button type="button" class="btn btn-secondary" onclick="openLink('sheet_received_url')">Mở</button>
+    </div>
 
     <label for="sheet_checklist_url">Google Sheet — Checklist công nhân cơ hữu (link)</label>
-    <input type="url" id="sheet_checklist_url" name="sheet_checklist_url" value="{{ settings.sheet_checklist_url }}" required>
+    <div class="field-row">
+      <input type="url" id="sheet_checklist_url" name="sheet_checklist_url" value="{{ settings.sheet_checklist_url }}" required>
+      <button type="button" class="btn btn-secondary" onclick="openLink('sheet_checklist_url')">Mở</button>
+    </div>
 
     <button type="submit">Lưu cấu hình</button>
   </form>
+
+  <script>
+    function openLink(inputId) {
+      const value = document.getElementById(inputId).value.trim();
+      if (value) window.open(value, "_blank", "noopener");
+    }
+    function openDriveFolder(inputId) {
+      const id = document.getElementById(inputId).value.trim();
+      if (id) window.open(`https://drive.google.com/drive/folders/${encodeURIComponent(id)}`, "_blank", "noopener");
+    }
+  </script>
 </div>
 {% endblock %}
