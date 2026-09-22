@@ -211,6 +211,12 @@ def get_sheet_title(service, spreadsheet_id: str, gid: str) -> str:
 DATE_FORMAT_HEADER_CANDIDATES = [["Ngày sinh"], ["Ngày cấp"], ["Ngày vào Tập đoàn"]]
 _UPDATED_RANGE_ROW_RE = re.compile(r"![A-Z]+(\d+):")
 
+# Chuẩn hoá style cho checklist (đã áp cho toàn sheet 1 lần) — áp lại đúng chuẩn này cho
+# mỗi dòng mới ghi qua Add để không bị lệch font/size/alignment/border theo thời gian.
+ROW_FONT_FAMILY = "Times New Roman"
+ROW_FONT_SIZE = 10
+ROW_BORDER_STYLE = {"style": "SOLID", "width": 1, "color": {"red": 0.6, "green": 0.6, "blue": 0.6}}
+
 
 def append_checklist_row(service, sheet_url: str, header: list[str], data: dict) -> None:
     """Ghi 1 dòng mới vào cuối bảng checklist. Dùng insertDataOption=INSERT_ROWS để Google tự
@@ -234,16 +240,54 @@ def append_checklist_row(service, sheet_url: str, header: list[str], data: dict)
         .execute()
     )
 
-    # Dòng mới append đôi khi kế thừa sai format (M/D cũ, hoặc không có format ngày nào cả
-    # -> hiện số serial thô). Ép lại number format D/M/YYYY riêng cho đúng dòng vừa ghi.
+    # Dòng mới append đôi khi kế thừa sai format (font/size/alignment/border khác chuẩn, M/D
+    # cũ cho cột ngày, hoặc không có format ngày nào cả -> hiện số serial thô). Ép lại đúng
+    # style chuẩn của sheet cho riêng dòng vừa ghi.
     updated_range = result.get("updates", {}).get("updatedRange", "")
     match = _UPDATED_RANGE_ROW_RE.search(updated_range)
     if match:
-        _apply_date_format_to_row(service, spreadsheet_id, gid, header, int(match.group(1)))
+        _apply_row_style(service, spreadsheet_id, gid, header, int(match.group(1)))
 
 
-def _apply_date_format_to_row(service, spreadsheet_id: str, gid: str, header: list[str], row_number: int) -> None:
-    requests = []
+def _apply_row_style(service, spreadsheet_id: str, gid: str, header: list[str], row_number: int) -> None:
+    last_col = len(header)
+    row_range = {
+        "sheetId": int(gid),
+        "startRowIndex": row_number - 1,
+        "endRowIndex": row_number,
+        "startColumnIndex": 0,
+        "endColumnIndex": last_col,
+    }
+
+    requests = [
+        {
+            "repeatCell": {
+                "range": row_range,
+                "cell": {
+                    "userEnteredFormat": {
+                        "textFormat": {"fontFamily": ROW_FONT_FAMILY, "fontSize": ROW_FONT_SIZE},
+                        "horizontalAlignment": "CENTER",
+                        "verticalAlignment": "MIDDLE",
+                    }
+                },
+                "fields": (
+                    "userEnteredFormat.textFormat.fontFamily,userEnteredFormat.textFormat.fontSize,"
+                    "userEnteredFormat.horizontalAlignment,userEnteredFormat.verticalAlignment"
+                ),
+            }
+        },
+        {
+            "updateBorders": {
+                "range": row_range,
+                "top": ROW_BORDER_STYLE,
+                "bottom": ROW_BORDER_STYLE,
+                "left": ROW_BORDER_STYLE,
+                "right": ROW_BORDER_STYLE,
+                "innerVertical": ROW_BORDER_STYLE,
+            }
+        },
+    ]
+
     for candidates in DATE_FORMAT_HEADER_CANDIDATES:
         idx = find_column(header, candidates)
         if idx is None:
@@ -264,8 +308,7 @@ def _apply_date_format_to_row(service, spreadsheet_id: str, gid: str, header: li
             }
         )
 
-    if requests:
-        service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={"requests": requests}).execute()
+    service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={"requests": requests}).execute()
 
 
 def build_mnv_set(rows: list[list[str]]) -> set[str]:
