@@ -191,3 +191,23 @@ def write_not_found_excel(rows: list[dict], output_path: str) -> None:
         ws.append([row.get(key, "") for key, _ in NOT_FOUND_COLUMNS])
 
     workbook.save(output_path)
+
+
+FOUND_COLUMNS = [
+    ("stt", "STT"),
+    ("mnv", "MNV"),
+    ("ho_ten", "Họ và tên"),
+    ("drive_file_name", "Tên file"),
+]
+
+
+def write_found_excel(rows: list[dict], output_path: str) -> None:
+    workbook = Workbook()
+    ws = workbook.active
+    ws.title = "Found"
+
+    ws.append([label for _, label in FOUND_COLUMNS])
+    for row in rows:
+        ws.append([row.get(key, "") for key, _ in FOUND_COLUMNS])
+
+    workbook.save(output_path)

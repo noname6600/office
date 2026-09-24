@@ -236,3 +236,35 @@ def download_not_found_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="job_{job_id}_not_found.xlsx"'},
     )
+
+
+@router.get("/{job_id}/download/excel-found")
+def download_found_excel(job_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    job = _get_owned_job(db, job_id, user)
+
+    results = db.query(JobResult).filter_by(job_id=job.id, status="found").order_by(JobResult.id).all()
+    rows = [
+        {
+            "stt": r.stt,
+            "mnv": r.mnv,
+            "ho_ten": r.ho_ten,
+            "drive_file_name": r.drive_file_name,
+        }
+        for r in results
+    ]
+
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        excel_io.write_found_excel(rows, tmp_path)
+        with open(tmp_path, "rb") as f:
+            content = f.read()
+    finally:
+        os.remove(tmp_path)
+
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="job_{job_id}_found.xlsx"'},
+    )

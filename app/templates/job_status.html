@@ -8,6 +8,7 @@
   <p id="summary-line"></p>
   <p id="error-line" style="color:#991b1b;"></p>
   <a id="download-all-link" class="btn" style="display:none;">Download tất cả PDF (.zip)</a>
+  <a id="download-excel-found-link" class="btn btn-secondary" style="display:none;">Tải Excel danh sách tìm thấy</a>
   <a id="download-excel-link" class="btn btn-secondary" style="display:none;">Tải Excel danh sách không tìm thấy</a>
 </div>
 
@@ -153,6 +154,10 @@ async function loadResults() {
     const allLink = document.getElementById("download-all-link");
     allLink.href = `/jobs/${jobId}/download/pdf-all`;
     allLink.style.display = "inline-block";
+
+    const excelFoundLink = document.getElementById("download-excel-found-link");
+    excelFoundLink.href = `/jobs/${jobId}/download/excel-found`;
+    excelFoundLink.style.display = "inline-block";
   }
 
   if (notFoundRows.length > 0) {
